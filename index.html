@@ -1,0 +1,282 @@
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理アプリ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .task-input, .date-input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .add-task-btn {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            padding: 15px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-item.urgent {
+            border-left: 5px solid #f44336;
+        }
+        .task-item.completed {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .notification-bell {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .theme-selector {
+            margin-bottom: 20px;
+            position: 10px;
+        }
+        .theme-selector ul {
+            display: flex;
+            gap: 10px;
+            list-style: none;
+            padding: 0;
+        }
+        .theme-btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .theme-btn:hover {
+            background-color: #ddd;
+        }
+        .edit-btn {
+            color: #2196F3;
+        }
+        .edit-btn:hover {
+            text-decoration: underline;
+        }
+        #category-select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .btn.btn-primary {
+            width: 100%;
+        }
+        :root {
+            --orange: #FF5722;
+            --blue: #2196F3;
+            --purple: #9C27B0;
+            --completed: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-selector">
+        <h2>Theme Selector</h2>
+        <ul>
+            <li><button class="theme-btn" data-theme="light">Light</button></li>
+            <li><button class="theme-btn" data-theme="dark">Dark</button></li>
+            <li><button class="theme-btn" data-theme="blue">Blue</button></li>
+            <li><button class="theme-btn" data-theme="orange">Orange</button></li>
+            <li><button class="theme-btn" data-theme="purple">Purple</button></li>
+        </ul>
+    </div>
+
+    <h1>タスク管理アプリ</h1>
+    
+    <form class="task-form">
+        <select id="category-select">
+            <option value="work">仕事</option>
+            <option value="personal">プライベート</option>
+        </select>
+        <input type="text" class="task-input" placeholder="タスクを入力" required>
+        <input type="datetime-local" class="date-input" required>
+        <button type="submit" class="add-task-btn">タスクを追加</button>
+    </form>
+    
+    <ul class="task-list"></ul>
+
+    <div class="notification-bell">🔔</div>
+
+    <script>
+        const taskForm = document.querySelector('.task-form');
+        const taskInput = document.querySelector('.task-input');
+        const dateInput = document.querySelector('.date-input');
+        const taskList = document.querySelector('.task-list');
+        const notificationBell = document.querySelector('.notification-bell');
+        const themeSelector = document.querySelector('.theme-selector');
+
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let theme = localStorage.getItem('theme') || 'light';
+
+        function setTheme(theme) {
+            document.body.className = '';
+            document.body.classList.add(`theme-${theme}`);
+            localStorage.setItem('theme', theme);
+        }
+
+        function editTask(taskIndex) {
+            const task = tasks[taskIndex];
+            task.text = prompt('タスクを編集', task.text);
+            task.dueDate = prompt('期限編集 (YYYY-MM-DDTHH:MM)', task.dueDate) || new Date().toISOString();
+        }
+
+        function renderTasks() {
+            taskList.innerHTML = '';
+
+            tasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dueDate = new Date(task.dueDate);
+                dueDate.setHours(0, 0, 0, 0);
+
+                if (dueDate.getTime() === today.getTime()) {
+                    li.classList.add('urgent');
+                }
+
+                if (task.completed) {
+                    li.classList.add('completed');
+                }
+
+                li.innerHTML = `
+                    <div>
+                        <span>${task.text}</span> - 
+                        <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                    </div>
+                    <button class="delete-btn" data-index="${index}">削除</button>
+                    <button class="edit-btn" data-index="${index}">編集</button>
+                `;
+
+                taskList.appendChild(li);
+            });
+        }
+
+        function addTask(e) {
+            e.preventDefault();
+
+            tasks.push({
+                text: taskInput.value,
+                dueDate: dateInput.value,
+                completed: false
+            });
+
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            taskInput.value = '';
+            dateInput.value = '';
+            renderTasks();
+            checkNotifications();
+        }
+
+        function deleteTask(e) {
+            if (!e.target.classList.contains('delete-btn')) return;
+
+            const index = e.target.dataset.index;
+            tasks.splice(index, 1);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            renderTasks();
+        }
+
+        function checkNotifications() {
+            const now = new Date();
+            const todayTasks = tasks.filter(task => {
+                const dueDate = new Date(task.dueDate);
+                return (
+                    dueDate.getDate() === now.getDate() &&
+                    dueDate.getMonth() === now.getMonth() &&
+                    dueDate.getFullYear() === now.getFullYear() &&
+                    !task.completed
+                );
+            });
+
+            if (todayTasks.length > 0) {
+                notificationBell.style.color = 'red';
+
+                if (Notification.permission === 'granted') {
+                    showNotification(todayTasks);
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            showNotification(todayTasks);
+                        }
+                    });
+                }
+            } else {
+                notificationBell.style.color = 'black';
+            }
+        }
+
+        function showNotification(todayTasks) {
+            const notification = new Notification('タスク通知', {
+                body: `今日締切のタスクが${todayTasks.length}件あります`,
+                icon: 'https://cdn-icons-png.flaticon.com/512/3161/3161837.png'
+            });
+
+            setTimeout(notification.close.bind(notification), 5000);
+        }
+
+        taskForm.addEventListener('submit', addTask);
+        taskList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                deleteTask(e);
+            } else if (e.target.classList.contains('edit-btn')) {
+                editTask(e.target.dataset.index);
+                renderTasks();
+            }
+        });
+
+        themeSelector.addEventListener('click', (e) => {
+            if (e.target.classList.contains('theme-btn')) {
+                setTheme(e.target.dataset.theme);
+            }
+        });
+
+        setTheme(theme);
+        renderTasks();
+        checkNotifications();
+
+        setInterval(checkNotifications, 60 * 60 * 1000);
+    </script>
+</body>
+</html>
