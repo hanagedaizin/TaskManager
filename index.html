@@ -39,8 +39,8 @@
             margin-bottom: 10px;
             border-radius: 4px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            align-items: stretch;
         }
         .task-item.urgent {
             border-left: 5px solid #f44336;
@@ -105,6 +105,79 @@
             --purple: #9C27B0;
             --completed: #888;
         }
+        .task-item.work-task {
+            border-left: 5px solid var(--blue);
+            background-color: rgba(33, 150, 243, 0.1);
+        }
+        .task-item.personal-task {
+            border-left: 5px solid var(--orange);
+            background-color: rgba(255, 87, 34, 0.1);
+        }
+        .theme-dark {
+            background-color: #333;
+            color: #fff;
+        }
+        .theme-dark .task-item {
+            background-color: #444;
+            border-color: #555;
+        }
+        .theme-blue {
+            background-color: #e6f2ff;
+        }
+        .theme-orange {
+            background-color: #ffebd6;
+        }
+        .theme-purple {
+            background-color: #f3e5f5;
+        }
+        .task-item .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .task-notes {
+            padding: 10px;
+            margin-top: 10px 0;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            display: block;
+            max-height: 100%;
+            overflow: hidden;
+        }
+        .task-notes.toggled {
+            display: none;
+        }
+        .notes-toggle-btn {
+            color: #2196F3;
+            font-size: 0.8em;
+            cursor: pointer;
+            user-select: none;
+            margin-top: 5px;
+        }
+        .task-image-attachment {
+            max-width: 200px;
+            margin-top: 10px;
+            border-radius: 4px;
+            display: block;
+        }
+        .color-label-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .label-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 3px 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .file-upload-container {
+            margin-top: 10px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
@@ -128,44 +201,95 @@
         </select>
         <input type="text" class="task-input" placeholder="タスクを入力" required>
         <input type="datetime-local" class="date-input" required>
-        <button type="submit" class="add-task-btn">タスクを追加</button>
+        <textarea class="notes-entry-input" placeholder="備考を入力 (optional)"></textarea>
+        <div class="file-upload-container">
+            <input type="file" accept="image/*" class="file-upload-container">
+        </div>
+        <div class="color-label-selector">
+            <button type="button" data-color="red" style="background-color: #FF5c5c"></button>
+            <button type="button" data-color="blue" style="background-color: #87CEEB"></button>
+            <button type="button" data-color="green" style="background-color: #90ee90"></button>
+            <button type="button" data-color="yellow" style="background-color: #ffff00"></button>
+            <button type="button" data-color="default"></button>
+        </div>
+        <button type="submit" class="add-task-btn btn-primary">タスクを追加</button>
     </form>
     
     <ul class="task-list"></ul>
+    <footer style="text-center; color: gray; font-size: 0.8em; margin: 50px 0;">
+        2025 ンリツマ全著作権保有
+    </footer>
 
     <div class="notification-bell">🔔</div>
 
     <script>
         const taskForm = document.querySelector('.task-form');
         const taskInput = document.querySelector('.task-input');
-        const dateInput = document.querySelector('.date-input');
-        const taskList = document.querySelector('.task-list');
-        const notificationBell = document.querySelector('.notification-bell');
-        const themeSelector = document.querySelector('.theme-selector');
+        const notesEntry = document.querySelector('.notes-entry-input');
+        const filePicker = document.querySelector('input[type="file"]');
+        const colorSelector = document.querySelector('.color-label-selector');
+        let colorButtons = colorSelector.querySelectorAll('button');
+        let selectedColor = '';
 
-        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        let theme = localStorage.getItem('theme') || 'light';
+        colorButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                selectedColor = button.dataset.color || '';
+                colorButtons.forEach(btn => {
+                    btn.classList.toggle('active', btn === button);
+                });
+            });
+        });
 
-        function setTheme(theme) {
-            document.body.className = '';
-            document.body.classList.add(`theme-${theme}`);
-            localStorage.setItem('theme', theme);
-        }
+        function addTask(e) {
+            e.preventDefault();
 
-        function editTask(taskIndex) {
-            const task = tasks[taskIndex];
-            task.text = prompt('タスクを編集', task.text);
-            task.dueDate = prompt('期限編集 (YYYY-MM-DDTHH:MM)', task.dueDate) || new Date().toISOString();
+            const category = document.getElementById('category-select').value;
+            let file = null;
+
+            if (filePicker.files.length > 0) {
+                file = filePicker.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    file = reader.result;
+                }
+                reader.readAsDataURL(file);
+            }
+
+            tasks.push({
+                text: taskInput.value,
+                dueDate: document.querySelector('.date-input').value,
+                notes: notesEntry.value,
+                completed: false,
+                color: selectedColor,
+                attachment: file,
+                category: category
+            });
+
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            taskInput.value = '';
+            document.querySelector('.date-input').value = '';
+            notesEntry.value = '';
+            renderTasks();
+            checkNotifications();
         }
 
         function renderTasks() {
+            const taskList = document.querySelector('.task-list');
             taskList.innerHTML = '';
 
             tasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
             tasks.forEach((task, index) => {
                 const li = document.createElement('li');
-                li.className = 'task-item';
+                li.className = `task-item ${task.category}-task`;
+
+                if (task.color) {
+                    li.style.borderLeft = `5px solid ${task.color}`;
+                }
+
+                if (task.completed) {
+                    li.classList.add('completed');
+                }
 
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -176,37 +300,48 @@
                     li.classList.add('urgent');
                 }
 
-                if (task.completed) {
-                    li.classList.add('completed');
-                }
-
                 li.innerHTML = `
-                    <div>
-                        <span>${task.text}</span> - 
-                        <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                    <div class="task-header">
+                        <div>
+                            <span>${task.text}</span> - 
+                            <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                        </div>
+                        <button class="delete-btn" data-index="${index}">削除</button>
+                        <button class="edit-btn" data-index="${index}">編集</button>
                     </div>
-                    <button class="delete-btn" data-index="${index}">削除</button>
-                    <button class="edit-btn" data-index="${index}">編集</button>
+                    <div class="notes-toggle" data-index="${index}">${task.notes || task.attachment ? `<a href="#" class="notes-toggle-btn" data-index="${index}">備考${task.notes ? `<span style='margin-left:5px;'>📝</span>` : ''}</a>` : ''}</div>
+                    ${task.notes || task.attachment ? `<div class="task-notes ${notesToggles?.includes(index) ? 'toggled' : ''}">${task.notes}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
                 `;
-
                 taskList.appendChild(li);
             });
         }
 
-        function addTask(e) {
-            e.preventDefault();
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let theme = localStorage.getItem('theme') || 'light';
+        let notesToggles = new Array(tasks.length + 1).fill(false);
 
-            tasks.push({
-                text: taskInput.value,
-                dueDate: dateInput.value,
-                completed: false
+        function setTheme(theme) {
+            document.body.className = '';
+            document.body.classList.add(`theme-${theme}`);
+            localStorage.setItem('theme', theme);
+            const themeButtons = document.querySelector('.theme-selector').querySelectorAll('.theme-btn');
+            themeButtons.forEach(button => {
+                button.classList.toggle('active', button.dataset.theme === theme);
             });
+        }
 
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-            taskInput.value = '';
-            dateInput.value = '';
+        function editTask(index) {
+            const task = tasks[index];
+            const newText = prompt('タスクを編集', task.text);
+            if (newText !== null) {
+                task.text = newText;
+            }
+            task.dueDate = prompt('期限を編集 (YYYY-MM-DDTHH:MM)', task.dueDate) || new Date().toISOString();
+            const newCategory = prompt('カテゴリを編集（work/personal）', task.category);
+            if (newCategory) {
+                task.category = newCategory;
+            }
             renderTasks();
-            checkNotifications();
         }
 
         function deleteTask(e) {
@@ -231,7 +366,7 @@
             });
 
             if (todayTasks.length > 0) {
-                notificationBell.style.color = 'red';
+                document.querySelector('.notification-bell').style.color = 'red';
 
                 if (Notification.permission === 'granted') {
                     showNotification(todayTasks);
@@ -243,7 +378,7 @@
                     });
                 }
             } else {
-                notificationBell.style.color = 'black';
+                document.querySelector('.notification-bell').style.color = 'black';
             }
         }
 
@@ -257,16 +392,20 @@
         }
 
         taskForm.addEventListener('submit', addTask);
-        taskList.addEventListener('click', (e) => {
+        document.querySelector('.task-list').addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-btn')) {
                 deleteTask(e);
             } else if (e.target.classList.contains('edit-btn')) {
                 editTask(e.target.dataset.index);
-                renderTasks();
+            } else if (e.target.classList.contains('notes-toggle-btn')) {
+                e.preventDefault();
+                const index = e.target.dataset.index;
+                notesToggles[index] = !notesToggles[index];
+                document.querySelector(`li:nth-child(${parseInt(index) + 1}) .task-notes`)?.classList.toggle('toggled');
             }
         });
 
-        themeSelector.addEventListener('click', (e) => {
+        document.querySelector('.theme-selector').addEventListener('click', (e) => {
             if (e.target.classList.contains('theme-btn')) {
                 setTheme(e.target.dataset.theme);
             }
