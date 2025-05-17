@@ -701,6 +701,122 @@
             color: white;
         }
 
+        .overdue-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right:0; bottom:0;
+            width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.60);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .overdue-modal.show {
+            display: flex;
+        }
+        .overdue-modal-content {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 12px;
+            padding: 32px 25px 22px 25px;
+            width: 92vw;
+            max-width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 6px 26px rgba(0,0,0,0.15);
+            position: relative;
+            animation: fadeIn .22s cubic-bezier(.47,.13,.73,1.76);
+        }
+        @keyframes fadeIn { from {opacity: 0; transform: scale(0.97);} to {opacity: 1; transform: scale(1);} }
+        .overdue-modal-content h2 {
+            margin-top: 0;
+            color: var(--danger-red);
+            font-size: 1.28em;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: .25em;
+            margin-bottom: 18px;
+            text-align: left;
+        }
+        .overdue-modal-close-btn {
+            position: absolute;
+            right: 18px; top: 12px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: var(--completed-text);
+            font-weight: bold;
+            transition: color 0.2s;
+        }
+        .overdue-modal-close-btn:hover {
+            color: var(--danger-red);
+        }
+        .overdue-task-list {
+            list-style: none;
+            padding: 0;
+            max-width: 100%;
+        }
+        .overdue-task-item {
+            background: var(--light-gray);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--danger-red);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 14px 18px 12px 15px;
+            position: relative;
+            transition: box-shadow 0.18s, background 0.18s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .theme-dark .overdue-task-item {
+            background: var(--medium-gray);
+        }
+        .overdue-task-item span {
+            font-size: 1.12em;
+            font-weight: bold;
+            color: var(--danger-red);
+            margin-bottom: 2px;
+        }
+        .overdue-task-item small {
+            color: var(--completed-text);
+            font-size: 0.97em;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .overdue-task-item .overdue-task-notes {
+            background: var(--bg-color);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-size: 0.98em;
+            margin: 8px 0 0;
+            padding: 12px;
+            overflow-x: auto;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .theme-dark .overdue-task-item .overdue-task-notes {
+            background: var(--light-gray);
+        }
+        .overdue-task-attachment {
+            max-width: 96%;
+            display: block;
+            margin: 10px 0 0;
+            border-radius: 6px;
+            border: 1px solid var(--medium-gray);
+        }
+        .theme-dark .overdue-task-attachment {
+            border-color: var(--border-color);
+        }
+        .overdue-task-tag {
+            display: inline-block;
+            background: var(--danger-red);
+            color: #fff;
+            border-radius: 5px;
+            padding: 2px 10px;
+            font-size: 0.93em;
+            margin-right: 7px;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -761,6 +877,14 @@
     <button class="history-btn">更新履歴</button>
     <div class="version-info">v1.7</div>
 
+    <div class="overdue-modal">
+        <div class="overdue-modal-content">
+            <span class="overdue-modal-close-btn" title="閉じる">&times;</span>
+            <h2>期限切れタスク</h2>
+            <ul class="overdue-task-list"></ul>
+        </div>
+    </div>
+
     <div class="changelog-modal">
         <div class="changelog-content">
             <span class="modal-close-btn">&times;</span>
@@ -782,13 +906,16 @@
         const colorSelector = document.querySelector('.color-label-selector');
         let colorButtons = colorSelector.querySelectorAll('.label-btn');
         let selectedColor = '';
-        let selectedTag = '';
+        let selectedTag = ''; 
 
         colorButtons.forEach(button => {
             button.addEventListener('click', () => {
                 colorButtons.forEach(btn => btn.classList.remove('active'));
+
                 button.classList.add('active');
+
                 selectedColor = button.dataset.color || '';
+
                 if (selectedColor && selectedColor !== 'default') {
                     const tagNamePrompt = prompt(`"${button.innerText.replace('✓', '').trim()}"の色に付けるタグ名を入力してください:`);
                     if (tagNamePrompt !== null && tagNamePrompt.trim() !== '') {
@@ -799,35 +926,49 @@
                 } else {
                     selectedTag = ''; 
                 }
+                //console.log(`Selected color: ${selectedColor}, Tag: ${selectedTag}`);
             });
         });
 
+        // --- テーマカラープログラム ---
         const themes = {
-            'light' : '',
+            'light' : '', // デフォルト(クラスなし)
             'dark' : 'theme-dark',
             'blue' : 'theme-blue',
             'orange' : 'theme-orange',
             'purple' : 'theme-purple'
         };
 
+        // ボタンを取得
         const themeBtns = document.querySelectorAll('.theme-btn');
         function setTheme(themeKey) {
+            // すべてのテーマクラスをリセット
             document.body.classList.remove('theme-dark', 'theme-blue', 'theme-orange', 'theme-purple');
-            if (themes[themeKey]) document.body.classList.add(themes[themeKey]);
+
+            if (themes[themeKey]) {
+                document.body.classList.add(themes[themeKey]);
+            }
+            // アクティブボタン切り替え
             themeBtns.forEach(btn => btn.classList.remove('active'));
             themeBtns.forEach(btn => {
                 if (btn.dataset.theme === themeKey) btn.classList.add('active');
             });
+            // 永続化
             localStorage.setItem('task-theme', themeKey);
         }
+
+        // ボタンクリックでテーマ切替
         themeBtns.forEach(btn => {
             btn.addEventListener('click', () => setTheme(btn.dataset.theme));
         });
+
+        // ページ読込時にテーマ適用
         (function restoreThemeOnLoad() {
             const savedTheme = localStorage.getItem('task-theme') || 'light';
             setTheme(savedTheme);
         })();
 
+        // --- タスク追加 ---
         function addTask(e) {
             e.preventDefault();
 
@@ -864,14 +1005,12 @@
                         color: color,
                         attachment: fileAttachment,
                         category: category,
-                        tag: tag,
-                        showNotes: false
+                        tag: tag
                     });
 
                     localStorage.setItem('tasks', JSON.stringify(tasks));
                     renderTasks();
-                    scheduleNotificationsForTask(tasks.length - 1);
-                };
+                }
                 reader.readAsDataURL(file);
             } else {
                 tasks.push({
@@ -882,13 +1021,11 @@
                     color: color,
                     attachment: null,
                     category: category,
-                    tag: tag,
-                    showNotes: false
+                    tag: tag
                 });
 
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
-                scheduleNotificationsForTask(tasks.length - 1);
             }
 
             taskInput.value = '';
@@ -897,8 +1034,8 @@
             fileInput.value = '';
         }
 
+        // --- タスク本体 ---
         let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        if (!Array.isArray(tasks)) tasks = [];
 
         function renderTasks() {
             const taskList = document.querySelector('.task-list');
@@ -911,6 +1048,7 @@
                 li.className = `task-item ${task.category}-task`;
 
                 if (task.color) {
+                    // 色のキーワードの場合はCSS変数を参照、指定無ければそのまま値適用
                     let colorCode = '';
                     switch (task.color) {
                         case 'red': colorCode = getComputedStyle(document.documentElement).getPropertyValue('--label-red'); break;
@@ -927,14 +1065,12 @@
                     li.classList.add('completed');
                 }
 
-                const now = new Date();
-                const dueDate = new Date(task.dueDate);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                const dueDay = new Date(task.dueDate);
-                dueDay.setHours(0, 0, 0, 0);
+                const dueDate = new Date(task.dueDate);
+                dueDate.setHours(0, 0, 0, 0);
 
-                if (dueDay.getTime() === today.getTime()) {
+                if (dueDate.getTime() === today.getTime()) {
                     li.classList.add('urgent');
                 }
 
@@ -949,7 +1085,7 @@
                         <button class="edit-btn" data-index="${index}">編集</button>
                     </div>
                     <div class="notes-toggle" data-index="${index}">${task.notes || task.attachment ? `<a href="#" class="notes-toggle-btn" data-index="${index}">備考${task.notes ? `<span style='margin-left:5px;'>📝</span>` : ''}</a>` : ''}</div>
-                    ${task.notes || task.attachment ? `<div class="task-notes ${tasks[index].showNotes ? '' : 'toggled'}">${task.notes ? task.notes.replace(/\n/g, '<br>') : ''}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
+                    ${task.notes || task.attachment ? `<div class="task-notes ${tasks[index].showNotes ? 'toggled' : ''}">${task.notes}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
                 `;
                 taskList.appendChild(li);
             });
@@ -962,7 +1098,6 @@
             tasks.splice(index, 1);
             localStorage.setItem('tasks', JSON.stringify(tasks));
             renderTasks();
-            scheduleAllNotifications();
         }
 
         function editTask(index) {
@@ -971,14 +1106,12 @@
             if (newText !== null) {
                 task.text = newText;
             }
-            task.dueDate = prompt('期限を編集 (YYYY-MM-DDTHH:MM)', task.dueDate) || task.dueDate;
+            task.dueDate = prompt('期限を編集 (YYYY-MM-DDTHH:MM)', task.dueDate) || new Date().toISOString();
             const newCategory = prompt('カテゴリを編集（work/personal）', task.category);
             if (newCategory) {
                 task.category = newCategory;
             }
-            localStorage.setItem('tasks', JSON.stringify(tasks));
             renderTasks();
-            scheduleAllNotifications();
         }
 
         document.querySelector('.task-form').addEventListener('submit', addTask);
@@ -991,119 +1124,11 @@
                 e.preventDefault();
                 const index = e.target.dataset.index;
                 tasks[index].showNotes = !tasks[index].showNotes;
-                localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
             }
         });
 
-        let notificationTimers = [];
-
-        function scheduleNotificationsForTask(taskIndex) {
-            const task = tasks[taskIndex];
-            if (!task) return;
-            const due = new Date(task.dueDate);
-            if (isNaN(due.getTime())) return;
-
-            const now = new Date();
-            if (due.getTime() < now.getTime()) return;
-
-            const noticeKeys = [
-                ['1d', 24 * 60 * 60 * 1000],
-                ['12h', 12 * 60 * 60 * 1000],
-                ['6h', 6 * 60 * 60 * 1000],
-                ['3h', 3 * 60 * 60 * 1000],
-                ['1h', 1 * 60 * 60 * 1000]
-            ];
-            for (const [type, beforeMs] of noticeKeys) {
-                const notifyTime = due.getTime() - beforeMs;
-                const uniqueKey = `notified_${task.dueDate}_${task.text}_${type}`;
-                if (localStorage.getItem(uniqueKey)) continue;
-
-                const delayMs = notifyTime - now.getTime();
-                if (delayMs <= 0 && due.getTime() > now.getTime()) {
-                    sendTaskNotification(task, type);
-                    localStorage.setItem(uniqueKey, "1");
-                } else if (delayMs > 0) {
-                    const timer = setTimeout(() => {
-                        sendTaskNotification(task, type);
-                        localStorage.setItem(uniqueKey, "1");
-                    }, delayMs);
-                    notificationTimers.push(timer);
-                }
-            }
-        }
-
-        function scheduleAllNotifications() {
-            notificationTimers.forEach(timerId => clearTimeout(timerId));
-            notificationTimers = [];
-            if (!requestNotificationPermission()) {
-                return;
-            }
-            for (let i = 0; i < tasks.length; i++) {
-                scheduleNotificationsForTask(i);
-            }
-        }
-
-        function sendTaskNotification(task, timingType) {
-            if (!("Notification" in window)) return;
-            let timingJp;
-            switch (timingType) {
-                case '1d': timingJp = '【期限24時間前】'; break;
-                case '12h': timingJp = '【期限12時間前】'; break;
-                case '6h': timingJp = '【期限6時間前】'; break;
-                case '3h': timingJp = '【期限3時間前】'; break;
-                case '1h': timingJp = '【期限1時間前】'; break;
-                default: timingJp = '';
-            }
-            const title = `${timingJp}タスクの期限が近づいています`;
-            let body = `タスク: ${task.text}`;
-            if (task.tag) body += `\nタグ: ${task.tag}`;
-            if (task.category === "work") body += '\nカテゴリ: 仕事';
-            else if (task.category === "personal") body += '\nカテゴリ: プライベート';
-            body += `\n期限: ${new Date(task.dueDate).toLocaleString()}`;
-            try {
-                new Notification(title, {
-                    body: body,
-                    icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/23f0.png'
-                });
-            } catch (e) {
-                alert(title + " " + body);
-            }
-        }
-
-        document.querySelector('.notification-bell').addEventListener('click', async () => {
-            if (await requestNotificationPermission()) {
-                document.querySelector('.notification-bell').classList.add('active');
-                scheduleAllNotifications();
-                alert("通知が有効化されました！\n今後、タスク期限が近付いた際に通知が届きます。");
-            } else {
-                alert("通知が許可されていません。\nAndroidの場合はChromeで開いて、通知を許可してください。");
-            }
-        });
-
-        async function requestNotificationPermission() {
-            if (!("Notification" in window)) {
-                alert("通知APIがこの端末/ブラウザでサポートされていません");
-                return false;
-            }
-            if (Notification.permission === "default") {
-                try {
-                    let permission = await Notification.requestPermission();
-                    return permission === "granted";
-                } catch (e) {
-                    return false;
-                }
-            }
-            return Notification.permission === "granted";
-        }
-
-        (async function initNotifications() {
-            if (Notification && Notification.permission === "granted") {
-                document.querySelector('.notification-bell').classList.add('active');
-                await scheduleAllNotifications();
-            }
-        })();
-
+        // --- 更新履歴モーダルの表示制御 ---
         const changelogModal = document.querySelector('.changelog-modal');
         const changelogOpenBtn = document.querySelector('.history-btn');
         const changelogCloseBtn = document.querySelector('.modal-close-btn');
@@ -1115,14 +1140,80 @@
         changelogCloseBtn.addEventListener('click', () => {
             changelogModal.classList.remove('show');
         });
+        // モーダル背景クリック時に閉じる
         changelogModal.addEventListener('click', (e) => {
             if (e.target === changelogModal) {
                 changelogModal.classList.remove('show');
             }
         });
+        // ESCキーで閉じる
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 changelogModal.classList.remove('show');
+            }
+        });
+
+        // --- 期限切れタスクリストの表示制御 ---
+        function showOverdueTasks() {
+            const overdueTasks = tasks.filter(task => {
+                const now = new Date();
+                const due = new Date(task.dueDate);
+                return due < now && !task.completed; // 未完で期限超過のみ
+            });
+            const modal = document.querySelector('.overdue-modal');
+            const list = modal.querySelector('.overdue-task-list');
+            list.innerHTML = '';
+
+            if (overdueTasks.length === 0) {
+                list.innerHTML = `<li style="padding: 30px 10px; text-align: center; color: var(--completed-text);">期限切れタスクはありません 🎉</li>`;
+                modal.classList.add('show');
+                return;
+            }
+
+            overdueTasks
+                .sort((a, b) => (new Date(a.dueDate)) - (new Date(b.dueDate)))
+                .forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'overdue-task-item';
+                
+                // タグ色 (if any)
+                let tagHtml = '';
+                if (task.tag) {
+                    tagHtml = `<span class="overdue-task-tag">${task.tag}</span>`;
+                }
+
+                li.innerHTML = `
+                    <span>${task.text}</span>
+                    <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                    ${tagHtml}
+                    ${
+                        (task.notes || task.attachment)
+                        ? `<div class="overdue-task-notes">
+                            ${task.notes ? `<div>${task.notes}</div>` : ''}
+                            ${task.attachment ? `<img class="overdue-task-attachment" src="${task.attachment}">` : ''}
+                           </div>`
+                        : ''
+                    }
+                `;
+                list.appendChild(li);
+            });
+            modal.classList.add('show');
+        }
+
+        document.querySelector('.notification-bell').addEventListener('click', () => {
+            showOverdueTasks();
+        });
+        document.querySelector('.overdue-modal').addEventListener('click', (e) => {
+            if (e.target === document.querySelector('.overdue-modal')) {
+                document.querySelector('.overdue-modal').classList.remove('show');
+            }
+        });
+        document.querySelector('.overdue-modal-close-btn').addEventListener('click', () => {
+            document.querySelector('.overdue-modal').classList.remove('show');
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelector('.overdue-modal').classList.remove('show');
             }
         });
 
