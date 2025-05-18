@@ -447,6 +447,16 @@
             transform: scale(1.1);
         }
 
+        .completed-bell {
+            position: fixed;
+            top: 56px;
+            right: 22px;
+            font-size: 28px;
+            cursor: pointer;
+            z-index: 99;
+            color: var(--dark-gray);
+            transition: color 0.3s;
+        }
 
         .theme-selector {
             margin-bottom: 20px;
@@ -911,6 +921,95 @@
             margin-right: 7px;
             margin-top: 2px;
         }
+
+        .complete-confirm-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.54);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+        .complete-confirm-modal > div {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 10px;
+            padding: 32px 27px 24px 27px;
+            width: 92vw;
+            max-width: 330px;
+            text-align: center;
+            box-shadow: 0 8px 26px rgba(0,0,0,0.18);
+        }
+        .complete-confirm-yes {
+            flex: 1;
+            padding: 10px 0;
+            background: var(--primary-green);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .complete-confirm-no {
+            flex: 1;
+            padding: 10px 0;
+            background: var(--medium-gray);
+            color: var(--text-color);
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .completed-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Dim background */
+            z-index: 1000;
+            justify-content: center; /* Center content horizontally */
+            align-items: center; /* Center content vertically */
+            overflow-y: auto; /* Allow scrolling if content is too tall */
+        }
+        .completed-modal.show {
+            display: flex; /* Show the modal */
+        }
+        .completed-modal-content {
+            background: var(--card-bg);
+            color: var(--text-color);
+            padding: 32px 25px 22px 25px;
+            width: 92vw;
+            max-width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 6px 26px rgba(0,0,0,0.15);
+            position: relative;
+        }
+        .completed-modal-content h2 {
+            margin-top: 0;
+            color: var(--primary-green);
+            font-size: 1.25em;
+            border-bottom: 1px solid var(--primary-green);
+            padding-bottom: .25em;
+            margin-bottom: 18px;
+            text-align: left;
+        }
+        .completed-task-list {
+            list-style: none;
+            padding: 0;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -971,9 +1070,10 @@
         &copy;2025 ンリツマ 全著作権保有
     </footer>
 
-    <div class="notification-bell">🔔</div>
+    <div class="notification-bell" title="期限切れタスク">🔔</div>
+    <div class="completed-bell" title="完了したタスク一覧" style="position:fixed; top:56px; right:22px; font-size:28px; cursor:pointer; z-index:99; color:var(--dark-gray); transition:color 0.3s;">✅</div>
     <button class="history-btn">更新履歴</button>
-    <div class="version-info">v1.7</div>
+    <div class="version-info">v1.8</div>
 
     <div class="overdue-modal">
         <div class="overdue-modal-content">
@@ -981,6 +1081,24 @@
             <h2>期限切れタスク</h2>
             <ul class="overdue-task-list"></ul>
         </div>
+    </div>
+
+    <div class="completed-modal">
+        <div class="completed-modal-content" style="background:var(--card-bg); color:var(--text-color); border-radius:12px; padding:32px 25px 22px 25px; width:92vw; max-width:520px; max-height:85vh; overflow-y:auto; box-shadow:0 6px 26px rgba(0,0,0,0.15); position:relative;">
+            <span class="completed-modal-close-btn" style="position:absolute; right:18px; top:12px; font-size:1.5em; cursor:pointer; color:var(--completed-text); font-weight:bold; transition:color 0.2s;">&times;</span>
+            <h2 style="margin-top:0; color:var(--primary-green); font-size:1.25em; border-bottom:1px solid var(--primary-green); padding-bottom:.25em; margin-bottom:18px; text-align:left;">完了済みタスク</h2>
+            <ul class="completed-task-list" style="list-style:none; padding:0; max-width:100%;"></ul>
+        </div>
+    </div>
+
+    <div class="complete-confirm-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.54); z-index:3000; justify-content:center; align-items:center;">
+      <div style="background:var(--card-bg); color:var(--text-color); border-radius:10px; padding:32px 27px 24px 27px; width:92vw; max-width:330px; text-align:center; box-shadow:0 8px 26px rgba(0,0,0,0.18);">
+        <div style="font-size:1.18em;margin-bottom:18px;">タスクは完了しましたか？</div>
+        <div style="display:flex; gap:18px; justify-content:center;">
+          <button class="complete-confirm-yes" style="flex:1; padding:10px 0; background:var(--primary-green); color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:1em; cursor:pointer; transition:background 0.2s;">はい</button>
+          <button class="complete-confirm-no" style="flex:1; padding:10px 0; background:var(--medium-gray); color:var(--text-color); border:none; border-radius:8px; font-weight:bold; font-size:1em; cursor:pointer; transition:background 0.2s;">いいえ</button>
+        </div>
+      </div>
     </div>
 
     <div class="changelog-modal">
@@ -996,6 +1114,7 @@
                 <li>v1.5: 色分け管理の改善</li>
                 <li>v1.6: UIのモダン化, テーマカラーのプログラム</li>
                 <li>v1.7: 更新履歴モーダル表示修正, テーマカラー適用</li>
+                <li>v1.8: 完了タスク表示機能を追加</li>
             </ul>
         </div>
     </div>
@@ -1186,6 +1305,17 @@
                 if (!task.completed && diff<1000*60*60*24 && diff>0) {
                     countdownHtml = `<span class="countdown" data-index="${index}">⏳ カウントダウン中...</span>`;
                 }
+                let btns = `
+                        <button class="delete-btn" data-index="${index}">削除</button>
+                        <button class="edit-btn" data-index="${index}">編集</button>
+                `;
+                // 完了ボタン（未完のみ）
+                if (!task.completed) {
+                    btns = `
+                        <button class="complete-btn" data-index="${index}">完了</button>
+                        ${btns}
+                    `;
+                }
                 li.innerHTML = `
                     <div class="task-header">
                         <div>
@@ -1194,8 +1324,7 @@
                             ${countdownHtml}
                             ${task.tag ? `<small>${task.tag}</small>` : ''}
                         </div>
-                        <button class="delete-btn" data-index="${index}">削除</button>
-                        <button class="edit-btn" data-index="${index}">編集</button>
+                        ${btns}
                     </div>
                     <div class="notes-toggle" data-index="${index}">${task.notes || task.attachment ? `<a href="#" class="notes-toggle-btn" data-index="${index}">備考${task.notes ? `<span style='margin-left:5px;'>📝</span>` : ''}</a>` : ''}</div>
                     ${task.notes || task.attachment ? `<div class="task-notes ${tasks[index].showNotes ? 'toggled' : ''}">${task.notes ? task.notes : ''}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
@@ -1253,10 +1382,13 @@
                 tasks[index].showNotes = !tasks[index].showNotes;
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
+            } else if (e.target.classList.contains('complete-btn')) {
+                e.preventDefault();
+                showCompleteConfirmModal(Number(e.target.dataset.index));
             }
         });
 
-        // ==== タスク一覧タブ＆ソート・フィルタ ====
+        // --- タスク一覧タブ＆ソート・フィルタ ====
 
         // タグ一覧取得ユーティリティ
         function getTaskTags() {
@@ -1327,7 +1459,7 @@
                 const soon = match[2] === 'soon';
                 return tasks
                     .filter(t => t.tag === tag)
-                    .sort((a, b) => soon ? (new Date(a.dueDate) - new Date(b.dueDate)) : (new Date(b.dueDate) - new Date(a.dueDate)));
+                    .sort((a, b) => soon ? (new Date(a.dueDate)) - (new Date(b.dueDate)) : (new Date(b.dueDate)) - (new Date(a.dueDate)));
             }
             // fallback
             return [...tasks];
@@ -1451,6 +1583,102 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.querySelector('.overdue-modal').classList.remove('show');
+            }
+        });
+
+        // --- チェックマーク（完了一覧）モーダル ---
+        function showCompletedTasks() {
+            const completedTasks = tasks.filter(task => !!task.completed);
+            const modal = document.querySelector('.completed-modal');
+            const list = modal.querySelector('.completed-task-list');
+            list.innerHTML = '';
+
+            if (completedTasks.length === 0) {
+                list.innerHTML = `<li style="padding: 30px 10px; text-align: center; color: var(--completed-text);">完了したタスクはありません 😌</li>`;
+                modal.style.display = "flex";
+                return;
+            }
+            completedTasks
+                .sort((a, b) => (new Date(b.dueDate)) - (new Date(a.dueDate)))
+                .forEach(task => {
+                const li = document.createElement('li');
+                li.style.background = "var(--light-gray)";
+                li.style.borderRadius = "8px";
+                li.style.marginBottom = "14px";
+                li.style.borderLeft = "4px solid var(--primary-green)";
+                li.style.boxShadow = "0 2px 7px rgba(0,0,0,0.05)";
+                li.style.padding = "13px 14px 12px 13px";
+                li.style.position = "relative";
+                li.style.opacity = 0.8;
+                li.innerHTML = `
+                    <span style="font-size:1.07em; font-weight:bold; color:var(--primary-green); margin-bottom:2px; text-decoration:line-through;">${task.text}</span>
+                    <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                    ${task.tag ? `<span style="display:inline-block; background:var(--label-green); color:#333; border-radius:5px; padding:2px 10px; font-size:0.93em; margin-right:7px; margin-top:2px;">${task.tag}</span>` : ''}
+                    ${
+                        (task.notes || task.attachment)
+                        ? `<div style="background:var(--bg-color); border-radius:6px; border:1px solid var(--border-color); color:var(--text-color); font-size:0.99em; margin:7px 0 0; padding:11px; overflow-x:auto;">
+                            ${task.notes ? `<div>${task.notes}</div>` : ''}
+                            ${task.attachment ? `<img style="max-width:95%;border-radius:6px;border:1px solid var(--medium-gray); margin-top:5px;" src="${task.attachment}">` : ''}
+                          </div>`
+                        : ''
+                    }
+                `;
+                list.appendChild(li);
+            });
+            modal.style.display = "flex";
+        }
+
+        const completedModal = document.querySelector('.completed-modal');
+        document.querySelector('.completed-bell').addEventListener('click', () => {
+            showCompletedTasks();
+        });
+        completedModal.addEventListener('click', (e) => {
+            if (e.target === completedModal) {
+                completedModal.style.display = 'none';
+            }
+        });
+        document.querySelector('.completed-modal-close-btn').addEventListener('click', () => {
+            completedModal.style.display = 'none';
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                completedModal.style.display = 'none';
+            }
+        });
+
+        // 完了確認モーダル関連
+        function showCompleteConfirmModal(idx) {
+            const confirmModal = document.querySelector('.complete-confirm-modal');
+            confirmModal.style.display = 'flex';
+            confirmModal.setAttribute('data-index', idx);
+        }
+        function hideCompleteConfirmModal() {
+            const confirmModal = document.querySelector('.complete-confirm-modal');
+            confirmModal.style.display = 'none';
+            confirmModal.removeAttribute('data-index');
+        }
+        document.querySelector('.complete-confirm-yes').addEventListener('click', function () {
+            const confirmModal = document.querySelector('.complete-confirm-modal');
+            const idx = Number(confirmModal.getAttribute('data-index'));
+            if (idx >= 0 && tasks[idx] && !tasks[idx].completed) {
+                tasks[idx].completed = true;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+            }
+            hideCompleteConfirmModal();
+        });
+        document.querySelector('.complete-confirm-no').addEventListener('click', function() {
+            hideCompleteConfirmModal();
+        });
+        // 外側クリック or ESCで消す
+        document.querySelector('.complete-confirm-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideCompleteConfirmModal();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideCompleteConfirmModal();
             }
         });
 
