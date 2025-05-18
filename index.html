@@ -279,6 +279,100 @@
             background-color: var(--category-personal-bg); /* Use darker BG */
         }
 
+        /* --- 追加: 緊急 (24h以内) の赤強調 --- */
+        .task-item.urgent-due {
+            border-left-color: var(--danger-red) !important;
+            background-color: #ffeaea !important;
+            box-shadow: 0 0 6px 0 #f4433650;
+            position: relative;
+            /*目立つ*/
+        }
+        .theme-dark .task-item.urgent-due {
+            background-color: #442323 !important;
+        }
+        .theme-blue .task-item.urgent-due {
+            background-color: #ffeaea !important;
+        }
+        .theme-orange .task-item.urgent-due {
+            background-color: #ffeaea !important;
+        }
+        .theme-purple .task-item.urgent-due {
+            background-color: #ffeaea !important;
+        }
+
+        /* カウントダウンタイマー */
+        .countdown {
+            display: inline-block;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: var(--danger-red);
+            margin-left: 0.5em;
+            background: #ffefef;
+            border-radius: 5px;
+            padding: 2px 8px;
+        }
+        .theme-dark .countdown {
+            background: #552a2a;
+        }
+
+        /* タブ切り替えUI */
+        .task-tabs-container {
+            margin: 22px 0 16px 0;
+            background: var(--light-gray);
+            border-radius: 10px;
+            width: 100%;
+            display: flex;
+            overflow-x: auto;
+            border: 1px solid var(--medium-gray);
+            padding: 7px 0;
+        }
+        .theme-dark .task-tabs-container {
+            background: var(--medium-gray);
+            border-color: var(--border-color);
+        }
+        .task-tabs {
+            display: flex;
+            width: 100%;
+            gap: 4px;
+            margin: 0;
+            padding: 0 7px;
+        }
+        .task-tab-btn {
+            font-size: 1em;
+            padding: 9px 22px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-color);
+            opacity: 0.8;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: all 0.18s;
+            margin: 0 2px;
+            position: relative;
+            outline: none;
+        }
+        .task-tab-btn.active, .task-tab-btn:focus {
+            background: var(--medium-gray);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 2px solid var(--primary-green);
+            opacity: 1;
+            color: var(--dark-gray);
+        }
+        .theme-dark .task-tab-btn.active, .theme-dark .task-tab-btn:focus {
+            border: 2px solid var(--danger-red);
+            background: #333;
+            color: var(--danger-red);
+        }
+
+        .task-tab-btn:not(.active):hover {
+            opacity: 1;
+            background: var(--card-bg);
+            transform: translateY(-2px) scale(1.04);
+        }
+        .theme-dark .task-tab-btn:not(.active):hover {
+            background: var(--medium-gray);
+        }
 
         .delete-btn, .edit-btn {
             padding: 8px 12px;
@@ -868,6 +962,10 @@
         <button type="submit" class="add-task-btn">タスクを追加</button>
     </form>
 
+    <div class="task-tabs-container" style="display:none;">
+        <div class="task-tabs"></div>
+    </div>
+
     <ul class="task-list"></ul>
     <footer>
         &copy;2025 ンリツマ 全著作権保有
@@ -1038,17 +1136,22 @@
         let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
 
         function renderTasks() {
+            clearCountdownIntervals();
+
+            updateTaskTabs();
+
             const taskList = document.querySelector('.task-list');
             taskList.innerHTML = '';
 
-            tasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const tabTasks = getTabTasks();
 
-            tasks.forEach((task, index) => {
+            // インデックス追跡のためマッピング
+            tabTasks.forEach((task, iForTab) => {
+                const index = tasks.indexOf(task); // 元tasks上でのindex
                 const li = document.createElement('li');
                 li.className = `task-item ${task.category}-task`;
-
+                // 色分け
                 if (task.color) {
-                    // 色のキーワードの場合はCSS変数を参照、指定無ければそのまま値適用
                     let colorCode = '';
                     switch (task.color) {
                         case 'red': colorCode = getComputedStyle(document.documentElement).getPropertyValue('--label-red'); break;
@@ -1060,37 +1163,185 @@
                     }
                     li.style.borderLeft = `5px solid ${colorCode}`;
                 }
-
-                if (task.completed) {
-                    li.classList.add('completed');
+                if (task.completed) { li.classList.add('completed'); }
+                // 「今日」用
+                const now = new Date();
+                const dueDateObj = new Date(task.dueDate);
+                // 差分 [ms]
+                const diff = dueDateObj - now;
+                // 24h以内で未完了=new "urgent"
+                if (!task.completed && diff<1000*60*60*24 && diff>0) {
+                    li.classList.add('urgent-due');
                 }
-
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dueDate = new Date(task.dueDate);
-                dueDate.setHours(0, 0, 0, 0);
-
-                if (dueDate.getTime() === today.getTime()) {
+                // 今日0:00~23:59
+                const todayStart = new Date();
+                todayStart.setHours(0,0,0,0);
+                const todayEnd = new Date();
+                todayEnd.setHours(23,59,59,999);
+                if (!task.completed && dueDateObj >= todayStart && dueDateObj <= todayEnd) {
                     li.classList.add('urgent');
                 }
-
+                // カウントダウン表示 (24h以内)
+                let countdownHtml = '';
+                if (!task.completed && diff<1000*60*60*24 && diff>0) {
+                    countdownHtml = `<span class="countdown" data-index="${index}">⏳ カウントダウン中...</span>`;
+                }
                 li.innerHTML = `
                     <div class="task-header">
                         <div>
                             <span>${task.text}</span> - 
                             <small>期限: ${new Date(task.dueDate).toLocaleString()}</small>
+                            ${countdownHtml}
                             ${task.tag ? `<small>${task.tag}</small>` : ''}
                         </div>
                         <button class="delete-btn" data-index="${index}">削除</button>
                         <button class="edit-btn" data-index="${index}">編集</button>
                     </div>
                     <div class="notes-toggle" data-index="${index}">${task.notes || task.attachment ? `<a href="#" class="notes-toggle-btn" data-index="${index}">備考${task.notes ? `<span style='margin-left:5px;'>📝</span>` : ''}</a>` : ''}</div>
-                    ${task.notes || task.attachment ? `<div class="task-notes ${tasks[index].showNotes ? 'toggled' : ''}">${task.notes}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
+                    ${task.notes || task.attachment ? `<div class="task-notes ${tasks[index].showNotes ? 'toggled' : ''}">${task.notes ? task.notes : ''}${task.attachment ? `<img class="task-image-attachment" src="${task.attachment}">` : ''}</div>` : ''}
                 `;
                 taskList.appendChild(li);
             });
+            // カウントダウン:定期更新
+            setTimeout(setupCountdownTimers, 50);
         }
 
+        function setupCountdownTimers() {
+            document.querySelectorAll('.countdown').forEach(span => {
+                const idx = Number(span.dataset.index);
+                const task = tasks[idx];
+                // 期限超過空白で消す
+                function updateCountdown() {
+                    const now = new Date();
+                    const due = new Date(task.dueDate);
+                    const diffMs = due - now;
+                    if (diffMs <= 0) {
+                        span.textContent = '期限切れ';
+                        span.style.background = '#ffcfcf';
+                        span.style.color = '#e60000';
+                        return;
+                    }
+                    const h = Math.floor(diffMs/1000/60/60);
+                    const m = Math.floor((diffMs/1000/60)%60);
+                    const s = Math.floor((diffMs/1000)%60);
+                    span.textContent = `残り ${h>0?`${h}時間`:''}${m>0?`${m}分`:''}${s}秒`;
+                }
+                updateCountdown();
+                const interval = setInterval(updateCountdown, 1000);
+                countdownIntervals.push(interval);
+            });
+        }
+
+        // タブ・リスト再描画時にタブ・タスク間のindexずれを回避
+        function findTaskIndexByNodeEvent(e) {
+            // ボタンやaにdata-indexが付与されていればそれ
+            let node = e.target;
+            while (node && !node.dataset.index) { node = node.parentElement; }
+            return node ? Number(node.dataset.index) : -1;
+        }
+
+        // 操作イベント
+        document.querySelector('.task-form').addEventListener('submit', addTask);
+        document.querySelector('.task-list').addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                deleteTask(e);
+            } else if (e.target.classList.contains('edit-btn')) {
+                editTask(e.target.dataset.index);
+            } else if (e.target.classList.contains('notes-toggle-btn')) {
+                e.preventDefault();
+                const index = e.target.dataset.index;
+                tasks[index].showNotes = !tasks[index].showNotes;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+            }
+        });
+
+        // ==== タスク一覧タブ＆ソート・フィルタ ====
+
+        // タグ一覧取得ユーティリティ
+        function getTaskTags() {
+            const tags = {};
+            tasks.forEach(task => {
+                const key = task.tag || '';
+                if (key) tags[key] = (tags[key] || 0) + 1;
+            });
+            return Object.keys(tags);
+        }
+
+        // タブ定義の生成（初回+タスク追加削除時に再生成が必要）
+        let currentTab = 'all-desc';
+        function updateTaskTabs() {
+            // Tab definitions:
+            // - すべてのタスク(新しい順)
+            // - すべてのタスク(古い順)
+            // - 各タグごと(新しい順)
+            const $tabsContainer = document.querySelector('.task-tabs-container');
+            const $tabs = document.querySelector('.task-tabs');
+            const tagKeys = getTaskTags();
+            // 動的なタブ生成
+            const tabDefs = [
+                { id: 'all-desc', label: '全タスク(新しい順)', type: 'all', desc: true },
+                { id: 'all-asc', label: '全タスク(古い順)', type: 'all', desc: false },
+            ];
+            tagKeys.forEach(tag => {
+                tabDefs.push({ id: `tag-${tag}-desc`, label: `#${tag}(新しい順)`, type: 'tag', tag: tag, desc: true });
+                tabDefs.push({ id: `tag-${tag}-asc`, label: `#${tag}(古い順)`, type: 'tag', tag: tag, desc: false });
+            });
+            // DOM構築
+            $tabs.innerHTML = '';
+            tabDefs.forEach(tab => {
+                const btn = document.createElement('button');
+                btn.className = 'task-tab-btn' + (currentTab === tab.id ? ' active' : '');
+                btn.textContent = tab.label;
+                btn.dataset.tabid = tab.id;
+                $tabs.appendChild(btn);
+            });
+            // 表示/非表示
+            $tabsContainer.style.display = 'flex';
+        }
+        // タブクリックイベント
+        document.querySelector('.task-tabs').addEventListener('click', e => {
+            if (e.target.matches('.task-tab-btn')) {
+                currentTab = e.target.dataset.tabid;
+                // 全タブ制御
+                document.querySelectorAll('.task-tab-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                renderTasks();
+            }
+        });
+
+        function getTabTasks() {
+            // カレントタブに応じてtasksをフィルタ・並び替えして返却
+            if (!currentTab || currentTab === 'all-desc') {
+                // 新しい順(降順)
+                return [...tasks].sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
+            }
+            if (currentTab === 'all-asc') {
+                // 古い順(昇順)
+                return [...tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            }
+            // タグごと
+            if (/^tag-(.+)-(desc|asc)$/.test(currentTab)) {
+                const match = currentTab.match(/^tag-(.+)-(desc|asc)$/);
+                const tag = match[1];
+                const desc = match[2] === 'desc';
+                return tasks
+                    .filter(t => t.tag === tag)
+                    .sort((a, b) => desc ? (new Date(b.dueDate) - new Date(a.dueDate)) : (new Date(a.dueDate) - new Date(b.dueDate)));
+            }
+            // fallback
+            return [...tasks];
+        }
+
+        // タイマー保持用
+        let countdownIntervals = [];
+
+        function clearCountdownIntervals() {
+            countdownIntervals.forEach(id => clearInterval(id));
+            countdownIntervals = [];
+        }
+
+        // タスク操作関連
         function deleteTask(e) {
             if (!e.target.classList.contains('delete-btn')) return;
 
@@ -1113,20 +1364,6 @@
             }
             renderTasks();
         }
-
-        document.querySelector('.task-form').addEventListener('submit', addTask);
-        document.querySelector('.task-list').addEventListener('click', (e) => {
-            if (e.target.classList.contains('delete-btn')) {
-                deleteTask(e);
-            } else if (e.target.classList.contains('edit-btn')) {
-                editTask(e.target.dataset.index);
-            } else if (e.target.classList.contains('notes-toggle-btn')) {
-                e.preventDefault();
-                const index = e.target.dataset.index;
-                tasks[index].showNotes = !tasks[index].showNotes;
-                renderTasks();
-            }
-        });
 
         // --- 更新履歴モーダルの表示制御 ---
         const changelogModal = document.querySelector('.changelog-modal');
