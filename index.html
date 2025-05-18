@@ -1269,23 +1269,23 @@
         }
 
         // タブ定義の生成（初回+タスク追加削除時に再生成が必要）
-        let currentTab = 'all-desc';
+        let currentTab = 'all-soon';
         function updateTaskTabs() {
             // Tab definitions:
-            // - すべてのタスク(新しい順)
-            // - すべてのタスク(古い順)
-            // - 各タグごと(新しい順)
+            // - すべてのタスク(期限が近い順)
+            // - すべてのタスク(期限が長い順)
+            // - 各タグごと(期限が近い順/長い順)
             const $tabsContainer = document.querySelector('.task-tabs-container');
             const $tabs = document.querySelector('.task-tabs');
             const tagKeys = getTaskTags();
             // 動的なタブ生成
             const tabDefs = [
-                { id: 'all-desc', label: '全タスク(新しい順)', type: 'all', desc: true },
-                { id: 'all-asc', label: '全タスク(古い順)', type: 'all', desc: false },
+                { id: 'all-soon', label: '全タスク(期限が近い順)', type: 'all', soon: true },
+                { id: 'all-long', label: '全タスク(期限が長い順)', type: 'all', soon: false },
             ];
             tagKeys.forEach(tag => {
-                tabDefs.push({ id: `tag-${tag}-desc`, label: `#${tag}(新しい順)`, type: 'tag', tag: tag, desc: true });
-                tabDefs.push({ id: `tag-${tag}-asc`, label: `#${tag}(古い順)`, type: 'tag', tag: tag, desc: false });
+                tabDefs.push({ id: `tag-${tag}-soon`, label: `#${tag}(期限が近い順)`, type: 'tag', tag: tag, soon: true });
+                tabDefs.push({ id: `tag-${tag}-long`, label: `#${tag}(期限が長い順)`, type: 'tag', tag: tag, soon: false });
             });
             // DOM構築
             $tabs.innerHTML = '';
@@ -1312,22 +1312,22 @@
 
         function getTabTasks() {
             // カレントタブに応じてtasksをフィルタ・並び替えして返却
-            if (!currentTab || currentTab === 'all-desc') {
-                // 新しい順(降順)
-                return [...tasks].sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
-            }
-            if (currentTab === 'all-asc') {
-                // 古い順(昇順)
+            if (!currentTab || currentTab === 'all-soon') {
+                // 期限が近い順(昇順)
                 return [...tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
             }
+            if (currentTab === 'all-long') {
+                // 期限が長い順(降順)
+                return [...tasks].sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
+            }
             // タグごと
-            if (/^tag-(.+)-(desc|asc)$/.test(currentTab)) {
-                const match = currentTab.match(/^tag-(.+)-(desc|asc)$/);
+            if (/^tag-(.+)-(soon|long)$/.test(currentTab)) {
+                const match = currentTab.match(/^tag-(.+)-(soon|long)$/);
                 const tag = match[1];
-                const desc = match[2] === 'desc';
+                const soon = match[2] === 'soon';
                 return tasks
                     .filter(t => t.tag === tag)
-                    .sort((a, b) => desc ? (new Date(b.dueDate) - new Date(a.dueDate)) : (new Date(a.dueDate) - new Date(b.dueDate)));
+                    .sort((a, b) => soon ? (new Date(a.dueDate) - new Date(b.dueDate)) : (new Date(b.dueDate) - new Date(a.dueDate)));
             }
             // fallback
             return [...tasks];
